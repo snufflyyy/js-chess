@@ -13,7 +13,7 @@ const Pieces = {
   KING: "king",
 };
 
-// piece textures (find nice svg files for pieces later!)
+// piece textures
 const wP = new Image();
 wP.src = "assets/pieces/wP.svg";
 const wR = new Image();
@@ -43,6 +43,7 @@ bK.src = "assets/pieces/bK.svg";
 // chess board "tiles"
 class Tile {
   position = { x: 0, y: 0 };
+  piecePosition = { x: 0, y: 0};
   piece = Pieces.NONE;
   pieceColor = false; // false = white | true = black
   color = false; // false = white | true = black
@@ -50,6 +51,10 @@ class Tile {
   constructor(x, y, color) {
     this.position.x = x;
     this.position.y = y;
+
+    this.piecePosition.x = x;
+    this.piecePosition.y = y; 
+
     this.color = color;
   }
 
@@ -58,7 +63,9 @@ class Tile {
     context.fillStyle = this.color ? blackTileColor : whiteTileColor;
 
     context.fillRect(this.position.x, this.position.y, tileSize, tileSize);
+  }
 
+  drawPiece() {
     // piece if it has one
     if (this.piece != "none") {
       let pieceImage = new Image();
@@ -112,8 +119,8 @@ class Tile {
       // draw the piece
       context.drawImage(
         pieceImage,
-        this.position.x,
-        this.position.y,
+        this.piecePosition.x,
+        this.piecePosition.y,
         tileSize,
         tileSize,
       );
@@ -124,6 +131,8 @@ class Tile {
 let fens = [];
 let board = [];
 
+let selectedTileIndex = {x: -1, y: -1};
+
 const boardSize = 8;
 const tileSize = gameCanvas.width / boardSize;
 
@@ -132,6 +141,8 @@ const blackTileColor = "#282828";
 
 let mousePosition = { x: 0, y: 0 };
 let mouseDown = false;
+
+let hoveredTileIndex = { x: 0, y: 0 };
 
 // input related stuff below
 function getMousePosition(canvas, event) {
@@ -212,28 +223,51 @@ function createBoard() {
   }
 
   // starting fen
-  //fens.push("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-
-  fens.push("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+  fens.push("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
   decodeFen();
 }
 
 function getCollisionBoard() {
   if (mouseDown) {
-    for (let x = 0; x < boardSize; x++) {
-      for (let y = 0; y < boardSize; y++) {
-        if (
-          mousePosition.x >= x * tileSize &&
-          mousePosition.x <= x * tileSize + tileSize &&
-          mousePosition.y >= y * tileSize &&
-          mousePosition.y <= y * tileSize + tileSize
-        ) {
-          console.log(x + " " + y);
-          // do others
-        }
+  for (let x = 0; x < boardSize; x++) {
+    for (let y = 0; y < boardSize; y++) {
+      if (
+        mousePosition.x >= x * tileSize &&
+        mousePosition.x <= x * tileSize + tileSize &&
+        mousePosition.y >= y * tileSize &&
+        mousePosition.y <= y * tileSize + tileSize
+      ) {
+        hoveredTileIndex.x = x;
+        hoveredTileIndex.y = y;
       }
     }
+  }
+
+    // selects piece
+    if (board[hoveredTileIndex.x][hoveredTileIndex.y].piece != Pieces.NONE && selectedTileIndex.x == -1 && selectedTileIndex.y == -1) {
+      selectedTileIndex.x = hoveredTileIndex.x;
+      selectedTileIndex.y = hoveredTileIndex.y;
+    }
+
+    // moves piece to mouse position
+    if (selectedTileIndex.x != -1 && selectedTileIndex.y != -1) {
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.x = mousePosition.x - tileSize / 2;
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.y = mousePosition.y - tileSize / 2;
+    }
+  } else {
+    if (selectedTileIndex.x != -1 && selectedTileIndex.y != -1) {
+      // place piece on board
+      board[hoveredTileIndex.x][hoveredTileIndex.y].piece = board[selectedTileIndex.x][selectedTileIndex.y].piece;
+      board[hoveredTileIndex.x][hoveredTileIndex.y].pieceColor = board[selectedTileIndex.x][selectedTileIndex.y].pieceColor;
+
+      if (hoveredTileIndex.x != selectedTileIndex.x && hoveredTileIndex.y != selectedTileIndex.y)
+      board[selectedTileIndex.x][selectedTileIndex.y].piece = Pieces.NONE;
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.x = board[selectedTileIndex.x][selectedTileIndex.y].position.x;
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.y = board[selectedTileIndex.x][selectedTileIndex.y].position.y;
+    }
+
+    selectedTileIndex = {x: -1, y: -1};
   }
 }
 
@@ -241,7 +275,16 @@ function drawBoard() {
   for (let x = 0; x < boardSize; x++) {
     for (let y = 0; y < boardSize; y++) {
       board[x][y].drawTile();
+
+      if (x != selectedTileIndex.x || y != selectedTileIndex.y) {
+        board[x][y].drawPiece();
+      }
     }
+  }
+
+  // draw selected piece later so it draws above the other pieces
+  if (selectedTileIndex.x != -1 && selectedTileIndex.y != -1) {
+    board[selectedTileIndex.x][selectedTileIndex.y].drawPiece();
   }
 }
 
