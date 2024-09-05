@@ -1,5 +1,4 @@
 const gameCanvas = document.getElementById("gameCanvas");
-
 const context = gameCanvas.getContext("2d");
 
 // piece types
@@ -43,7 +42,7 @@ bK.src = "assets/pieces/bK.svg";
 // chess board "tiles"
 class Tile {
   position = { x: 0, y: 0 };
-  piecePosition = { x: 0, y: 0};
+  piecePosition = { x: 0, y: 0 };
   piece = Pieces.NONE;
   pieceColor = false; // false = white | true = black
   color = false; // false = white | true = black
@@ -53,15 +52,13 @@ class Tile {
     this.position.y = y;
 
     this.piecePosition.x = x;
-    this.piecePosition.y = y; 
+    this.piecePosition.y = y;
 
     this.color = color;
   }
 
   drawTile() {
-    // tile itself
     context.fillStyle = this.color ? blackTileColor : whiteTileColor;
-
     context.fillRect(this.position.x, this.position.y, tileSize, tileSize);
   }
 
@@ -128,10 +125,12 @@ class Tile {
   }
 }
 
+class Piece {}
+
 let fens = [];
 let board = [];
 
-let selectedTileIndex = {x: -1, y: -1};
+let selectedTileIndex = { x: -1, y: -1 };
 
 const boardSize = 8;
 const tileSize = gameCanvas.width / boardSize;
@@ -230,44 +229,59 @@ function createBoard() {
 
 function getCollisionBoard() {
   if (mouseDown) {
-  for (let x = 0; x < boardSize; x++) {
-    for (let y = 0; y < boardSize; y++) {
-      if (
-        mousePosition.x >= x * tileSize &&
-        mousePosition.x <= x * tileSize + tileSize &&
-        mousePosition.y >= y * tileSize &&
-        mousePosition.y <= y * tileSize + tileSize
-      ) {
-        hoveredTileIndex.x = x;
-        hoveredTileIndex.y = y;
+    for (let x = 0; x < boardSize; x++) {
+      for (let y = 0; y < boardSize; y++) {
+        if (
+          mousePosition.x >= x * tileSize &&
+          mousePosition.x <= x * tileSize + tileSize &&
+          mousePosition.y >= y * tileSize &&
+          mousePosition.y <= y * tileSize + tileSize
+        ) {
+          hoveredTileIndex.x = x;
+          hoveredTileIndex.y = y;
+        }
       }
     }
-  }
 
     // selects piece
-    if (board[hoveredTileIndex.x][hoveredTileIndex.y].piece != Pieces.NONE && selectedTileIndex.x == -1 && selectedTileIndex.y == -1) {
+    if (
+      board[hoveredTileIndex.x][hoveredTileIndex.y].piece != Pieces.NONE &&
+      selectedTileIndex.x == -1 &&
+      selectedTileIndex.y == -1
+    ) {
       selectedTileIndex.x = hoveredTileIndex.x;
       selectedTileIndex.y = hoveredTileIndex.y;
     }
 
     // moves piece to mouse position
     if (selectedTileIndex.x != -1 && selectedTileIndex.y != -1) {
-      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.x = mousePosition.x - tileSize / 2;
-      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.y = mousePosition.y - tileSize / 2;
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.x =
+        mousePosition.x - tileSize / 2;
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.y =
+        mousePosition.y - tileSize / 2;
     }
   } else {
     if (selectedTileIndex.x != -1 && selectedTileIndex.y != -1) {
       // place piece on board
-      board[hoveredTileIndex.x][hoveredTileIndex.y].piece = board[selectedTileIndex.x][selectedTileIndex.y].piece;
-      board[hoveredTileIndex.x][hoveredTileIndex.y].pieceColor = board[selectedTileIndex.x][selectedTileIndex.y].pieceColor;
+      board[hoveredTileIndex.x][hoveredTileIndex.y].piece =
+        board[selectedTileIndex.x][selectedTileIndex.y].piece;
+      board[hoveredTileIndex.x][hoveredTileIndex.y].pieceColor =
+        board[selectedTileIndex.x][selectedTileIndex.y].pieceColor;
 
-      if (hoveredTileIndex.x != selectedTileIndex.x && hoveredTileIndex.y != selectedTileIndex.y)
-      board[selectedTileIndex.x][selectedTileIndex.y].piece = Pieces.NONE;
-      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.x = board[selectedTileIndex.x][selectedTileIndex.y].position.x;
-      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.y = board[selectedTileIndex.x][selectedTileIndex.y].position.y;
+      if (
+        hoveredTileIndex.x != selectedTileIndex.x &&
+        hoveredTileIndex.y != selectedTileIndex.y
+      ) {
+        board[selectedTileIndex.x][selectedTileIndex.y].piece = Pieces.NONE;
+      }
+
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.x =
+        board[selectedTileIndex.x][selectedTileIndex.y].position.x;
+      board[selectedTileIndex.x][selectedTileIndex.y].piecePosition.y =
+        board[selectedTileIndex.x][selectedTileIndex.y].position.y;
     }
 
-    selectedTileIndex = {x: -1, y: -1};
+    selectedTileIndex = { x: -1, y: -1 };
   }
 }
 
