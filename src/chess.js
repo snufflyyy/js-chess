@@ -1,190 +1,70 @@
+import { mousePosition, mouseDown, getMousePosition, handleMouseDown, handleMouseUp } from "./input.js";
+
+import Piece from "./piece.js";
+import Tile  from "./tile.js";
+
+// canvas related stuff
 const gameCanvas = document.getElementById("gameCanvas");
 const context = gameCanvas.getContext("2d");
 
-// piece types
-const Pieces = {
-  NONE: "none",
-  PAWN: "pawn",
-  ROOK: "rook",
-  KNIGHT: "knight",
-  BISHOP: "bishop",
-  QUEEN: "queen",
-  KING: "king",
-};
-
-// piece textures
-const wP = new Image();
-wP.src = "assets/pieces/wP.svg";
-const wR = new Image();
-wR.src = "assets/pieces/wR.svg";
-const wN = new Image();
-wN.src = "assets/pieces/wN.svg";
-const wB = new Image();
-wB.src = "assets/pieces/wB.svg";
-const wQ = new Image();
-wQ.src = "assets/pieces/wQ.svg";
-const wK = new Image();
-wK.src = "assets/pieces/wK.svg";
-
-const bP = new Image();
-bP.src = "assets/pieces/bP.svg";
-const bR = new Image();
-bR.src = "assets/pieces/bR.svg";
-const bN = new Image();
-bN.src = "assets/pieces/bN.svg";
-const bB = new Image();
-bB.src = "assets/pieces/bB.svg";
-const bQ = new Image();
-bQ.src = "assets/pieces/bQ.svg";
-const bK = new Image();
-bK.src = "assets/pieces/bK.svg";
-
-class Piece {
-  position = { x: 0, y: 0};
-  type = Piece.NONE;
-  color = false;
-  moves = 0;
-
-  constructor(x, y) {
-    this.position.x = x;
-    this.position.y = y;
-  }
-
-  drawPiece() {
-    let pieceImage = new Image();
-
-    if (this.color == false) {
-      // white
-      switch (this.type) {
-        case Pieces.PAWN:
-          pieceImage = wP;
-          break;
-        case Pieces.ROOK:
-          pieceImage = wR;
-          break;
-        case Pieces.KNIGHT:
-          pieceImage = wN;
-          break;
-        case Pieces.BISHOP:
-          pieceImage = wB;
-          break;
-        case Pieces.QUEEN:
-          pieceImage = wQ;
-          break;
-        case Pieces.KING:
-          pieceImage = wK;
-          break;
-      }
-    } else {
-      // black
-      switch (this.type) {
-        case Pieces.PAWN:
-          pieceImage = bP;
-          break;
-        case Pieces.ROOK:
-          pieceImage = bR;
-          break;
-        case Pieces.KNIGHT:
-          pieceImage = bN;
-          break;
-        case Pieces.BISHOP:
-          pieceImage = bB;
-          break;
-        case Pieces.QUEEN:
-          pieceImage = bQ;
-          break;
-        case Pieces.KING:
-          pieceImage = bK;
-          break;
-      }
-    }
-
-    // draw the piece
-    context.drawImage(
-      pieceImage,
-      this.position.x,
-      this.position.y,
-      tileSize,
-      tileSize,
-    );
-  }
-}
-
-// chess board "tiles"
-class Tile {
-  position = { x: 0, y: 0 };
-  color = false; // false = white | true = black
-
-  constructor(x, y, color) {
-    this.position.x = x;
-    this.position.y = y;
-
-    this.piece = new Piece(x, y);
-
-    this.color = color;
-  }
-
-  drawTile() {
-    context.fillStyle = this.color ? blackTileColor : whiteTileColor;
-    context.fillRect(this.position.x, this.position.y, tileSize, tileSize);
-  }
-}
-
-let fens = [];
+// board related stuff
+const boardSize = 8;
+const tileSize = gameCanvas.width / boardSize;
+let moves = 0;
+let activeColor = false; // false = white | true = black
+let fens = ["rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"]; // starting positions
+let pgn = "";
 let board = [];
 let validMovesBoard = [];
 
-let selected = { x: -1, y: -1 }; // selected tile index
 let hasSelectedTile = false;
+let selected = { x: -1, y: -1 }; // selected tile index
+let hovered = { x: 0, y: 0 }; // hovered tile index
 
-const boardSize = 8;
-const tileSize = gameCanvas.width / boardSize;
-
-const whiteTileColor = "#3f3f3f";
-const blackTileColor = "#282828";
-
-let mousePosition = { x: 0, y: 0 };
-let mouseDown = false;
-
-let hoveredTileIndex = { x: 0, y: 0 };
-
-// input related stuff below
-function getMousePosition(canvas, event) {
-  let rect = canvas.getBoundingClientRect();
-  let x = event.clientX - rect.left;
-  let y = event.clientY - rect.top;
-
-  mousePosition.x = x;
-  mousePosition.y = y;
-}
-
+// input stuff
 gameCanvas.addEventListener("mousemove", function (e) {
   getMousePosition(gameCanvas, e);
 });
+gameCanvas.addEventListener("mousedown", handleMouseDown);
+gameCanvas.addEventListener("mouseup", handleMouseUp);
 
-gameCanvas.addEventListener("mousedown", function (e) {
-  mouseDown = true;
-});
+function createBoard() {
+  Piece.initTextures();
 
-gameCanvas.addEventListener("mouseup", function (e) {
-  mouseDown = false;
-});
+  let color = false;
 
-// decodes the cool fen string and puts it on the game board
+  for (let x = 0; x < boardSize; x++) {
+    board[x] = [];
+    validMovesBoard[x] = [];
+    for (let y = 0; y < boardSize; y++) {
+      color = (x + y) % 2 !== 0;
+
+      board[x].push(new Tile(x * tileSize, y * tileSize, color));
+      validMovesBoard[x].push(false);
+    }
+  }
+
+  decodeFen();
+}
+
+// decodes the fen string and puts it on the game board
 function decodeFen() {
   const pieceMap = {
-    r: { piece: Pieces.ROOK, color: true },
-    n: { piece: Pieces.KNIGHT, color: true },
-    b: { piece: Pieces.BISHOP, color: true },
-    q: { piece: Pieces.QUEEN, color: true },
-    k: { piece: Pieces.KING, color: true },
-    p: { piece: Pieces.PAWN, color: true },
-    R: { piece: Pieces.ROOK, color: false },
-    N: { piece: Pieces.KNIGHT, color: false },
-    B: { piece: Pieces.BISHOP, color: false },
-    Q: { piece: Pieces.QUEEN, color: false },
-    K: { piece: Pieces.KING, color: false },
-    P: { piece: Pieces.PAWN, color: false },
+    // white
+    P: { piece: Piece.types.PAWN,   color: false },
+    R: { piece: Piece.types.ROOK,   color: false },
+    N: { piece: Piece.types.KNIGHT, color: false },
+    B: { piece: Piece.types.BISHOP, color: false },
+    Q: { piece: Piece.types.QUEEN,  color: false },
+    K: { piece: Piece.types.KING,   color: false },
+
+    // black
+    p: { piece: Piece.types.PAWN,   color: true },
+    r: { piece: Piece.types.ROOK,   color: true },
+    n: { piece: Piece.types.KNIGHT, color: true },
+    b: { piece: Piece.types.BISHOP, color: true },
+    q: { piece: Piece.types.QUEEN,  color: true },
+    k: { piece: Piece.types.KING,   color: true },
   };
 
   let pos = 0;
@@ -204,38 +84,64 @@ function decodeFen() {
         col += parseInt(char, 10);
         continue;
       } else if (pieceMap[char]) {
-        board[col][pos].piece .type= pieceMap[char].piece;
-        board[col][pos].piece.color = pieceMap[char].color;
+        board[col][pos].piece = new Piece(board[col][pos].position.x, board[col][pos].position.y, pieceMap[char].color, pieceMap[char].piece);
         col++;
       }
     }
   }
 }
 
-function createBoard() {
-  // color of tile of board
-  // false = white | true = black
-  let color = false;
+function encodeFen() {
+  let newFen = "";
+  let emptySpaces = 0;
 
-  for (let x = 0; x < boardSize; x++) {
-    board[x] = [];
-    validMovesBoard[x] = [];
-    for (let y = 0; y < boardSize; y++) {
-      color = (x + y) % 2 !== 0;
+  for (let y = 0; y < boardSize; y++) {
+    for (let x = 0; x < boardSize; x++) {
+      if (board[x][y].piece != null) {
+        if (emptySpaces > 0) {
+          newFen += emptySpaces.toString();
+        }
+        
+        // reset empty spaces
+        emptySpaces = 0;
 
-      board[x].push(new Tile(x * tileSize, y * tileSize, color));
-      validMovesBoard[x].push(false);
+        switch (board[x][y].piece.type) {
+          case Piece.types.PAWN:   newFen += board[x][y].piece.color ? "p" : "P"; break;
+          case Piece.types.ROOK:   newFen += board[x][y].piece.color ? "r" : "R"; break;
+          case Piece.types.KNIGHT: newFen += board[x][y].piece.color ? "n" : "N"; break;
+          case Piece.types.BISHOP: newFen += board[x][y].piece.color ? "b" : "B"; break;
+          case Piece.types.QUEEN:  newFen += board[x][y].piece.color ? "q" : "Q"; break;
+          case Piece.types.KING:   newFen += board[x][y].piece.color ? "k" : "K"; break;
+        }
+      } else {
+        emptySpaces++;
+      }
+    }
+    
+    if (emptySpaces > 0) {
+      newFen += emptySpaces.toString();
+    }
+
+    emptySpaces = 0;
+    if (y != 7) {
+      newFen += "/";
+    } else {
+      newFen += " ";
     }
   }
 
-  // starting fen
-  fens.push("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+  newFen += activeColor ? "b" : "w";
 
-  decodeFen();
+  console.log(newFen);
+}
+
+function addMoveToPgn() {
+
 }
 
 function getCollisionBoard() {
   if (mouseDown) {
+    // gets mouse position and finds which tile the mouse is over
     for (let x = 0; x < boardSize; x++) {
       for (let y = 0; y < boardSize; y++) {
         if (
@@ -244,22 +150,18 @@ function getCollisionBoard() {
           mousePosition.y >= y * tileSize &&
           mousePosition.y <= y * tileSize + tileSize
         ) {
-          hoveredTileIndex.x = x;
-          hoveredTileIndex.y = y;
+          hovered.x = x;
+          hovered.y = y;
         }
       }
     }
 
     // selects piece
-    if (
-      board[hoveredTileIndex.x][hoveredTileIndex.y].piece.type != Pieces.NONE &&
-      !hasSelectedTile
-    ) {
-      selected.x = hoveredTileIndex.x;
-      selected.y = hoveredTileIndex.y;
-      hasSelectedTile = true;
+    if (board[hovered.x][hovered.y].piece != null && !hasSelectedTile) {
+      selected.x = hovered.x;
+      selected.y = hovered.y;
 
-      getVaildMoves();
+      hasSelectedTile = true;
     }
 
     // moves piece to mouse position
@@ -271,67 +173,39 @@ function getCollisionBoard() {
     }
   } else {
     if (hasSelectedTile) {
-      const tempPiece = board[selected.x][selected.y].piece.type;
-      board[selected.x][selected.y].piece.type = Pieces.NONE;
+      const tempPiece = board[selected.x][selected.y].piece;
+      board[selected.x][selected.y].piece = null;
 
       // place piece on board
-      board[selected.x][selected.y].piece.type = tempPiece;
-      board[selected.x][selected.y].piece.color = 
-        board[selected.x][selected.y].piece.color; 
+      board[hovered.x][hovered.y].piece = tempPiece;  
+      board[hovered.x][hovered.y].piece.position.x = board[hovered.x][hovered.y].position.x;
+      board[hovered.x][hovered.y].piece.position.y = board[hovered.x][hovered.y].position.y;
 
-      board[selected.x][selected.y].piece.position.x =
-        board[selected.x][selected.y].position.x;
-      board[selected.x][selected.y].piece.position.y =
-        board[selected.x][selected.y].position.y;
+      activeColor = !activeColor;
+
+      encodeFen();
+      addMoveToPgn();
     }
 
     hasSelectedTile = false;
-  }
-}
-
-function getPawnMoves() {
-  if (moves <= 0) {
-    if (board[selected.x][selected.y - 2].piece.type == Piece.NONE) {
-      validMovesBoard[selected.x][selected.y - 2] = true;
-    }
-  }
-
-  if (board[selected.x][selected.y - 1].piece.type == Piece.NONE) {
-    validMovesBoard[selected.x][selected.y] =  true;
-  }
-}
-
-function getVaildMoves(type) {
-  switch (type) {
-    case Pieces.PAWN:
-      getPawnMoves();
-      break;
+    selected = { x: -1, y: -1};
   }
 }
 
 function drawBoard() {
   for (let x = 0; x < boardSize; x++) {
     for (let y = 0; y < boardSize; y++) {
-      board[x][y].drawTile();
+      board[x][y].drawTile(context, tileSize);
 
-      if (x != selected.x || y != selected.y) {
-        board[x][y].piece.drawPiece();
-      }
-    }
-  }
-
-  // valid moves board (temp)
-  for (let x = 0; x < boardSize; x++) {
-    for (let y = 0; y < boardSize; y++) {
-      if (validMovesBoard[x][y]) {
-        context.fillStyle(x * tileSize, y * tileSize, tileSize, tileSize);
+      if ((x != selected.x || y != selected.y) && board[x][y].piece != null) {
+        board[x][y].piece.drawPiece(context, tileSize);
       }
     }
   }
 
   // draw selected piece later so it draws above the other pieces
   if (hasSelectedTile) {
-    board[selected.x][selected.y].piece.drawPiece();
+    board[selected.x][selected.y].piece.drawPiece(context, tileSize);
   }
 }
 
